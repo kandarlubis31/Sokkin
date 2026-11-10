@@ -1,0 +1,34 @@
+# Contoh deck Sokkin — satu baris = satu kartu.
+# Baris kosong dan baris yang dimulai dengan # diabaikan.
+# Ganti teks di dalam [kurung siku] dengan ceritamu sendiri.
+# Buka file ini lewat tombol "Buka" atau Ctrl+O di aplikasi.
+
+[SALAM] Selamat pagi, Bapak/Ibu. Terima kasih atas kesempatan wawancara hari ini.
+
+[PERKENALAN] Nama saya [Nama Lengkap], lulusan S1 [Jurusan] dari [Universitas] tahun [Tahun].
+
+[LATAR BELAKANG] Selama kuliah saya mengerjakan beberapa proyek di bidang [bidang], termasuk [contoh proyek singkat].
+
+[PENGALAMAN] Saya pernah magang di [Instansi/Perusahaan] sebagai [posisi] selama [durasi], dengan fokus pada [tugas utama].
+
+[KEKUATAN] Saya teliti, terbiasa mendokumentasikan pekerjaan, dan nyaman mempelajari hal baru.
+
+[KELEMAHAN] Pengalaman kerja tim formal saya masih terbatas. Saya atasi dengan mencatat prosedur, bertanya lebih awal, dan meminta umpan balik.
+
+[ALASAN MELAMAR] Posisi ini sesuai dengan keterampilan dan minat saya di [bidang], dan saya ingin berkembang dengan standar kerja yang lebih terstruktur.
+
+[STAR: SITUASI] Pernah ada [masalah/kendala] saat [konteks kejadian].
+
+[STAR: TUGAS] Saat itu saya bertanggung jawab untuk [tugas yang harus diselesaikan].
+
+[STAR: AKSI] Langkah saya: [aksi pertama], [aksi kedua], lalu [aksi ketiga].
+
+[STAR: HASIL] Hasilnya [hasil yang terukur]. Pelajaran yang saya ambil: [pelajaran].
+
+[RENCANA 30 HARI] Di bulan pertama saya ingin memahami alur kerja, SOP, dan kebutuhan pengguna di tim ini.
+
+[PERTANYAAN BALIK] Pekerjaan apa yang paling sering ditangani di posisi ini pada bulan-bulan pertama?
+
+[BATAS JUJUR] Kalau ditanya hal yang belum saya kuasai: "Belum pernah saya kerjakan, tapi saya paham konsepnya dan siap belajar."
+
+[PENUTUP] Terima kasih atas waktunya. Saya siap menjelaskan lebih detail jika diperlukan.

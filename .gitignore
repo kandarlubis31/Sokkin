@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Editor
+.vscode/
+.idea/
+
+# Data pribadi (jangan pernah di-publish)
+SOKKIN_TEKS_PRIBADI.txt
+*.local.txt

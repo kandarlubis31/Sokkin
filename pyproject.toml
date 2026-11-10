@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sokkin"
+version = "1.4.0"
+description = "Overlay teleprompter selalu-di-depan untuk wawancara & presentasi (Windows, tkinter)"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Aulia Iskandar Lubis" }]
+requires-python = ">=3.10"
+keywords = ["teleprompter", "prompter", "overlay", "interview", "windows"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Win32 (MS Windows)",
+    "Topic :: Multimedia :: Video",
+]
+
+[project.urls]
+Homepage = "https://github.com/kandarlubis31/Sokkin"
+Repository = "https://github.com/kandarlubis31/Sokkin"
+
+[project.scripts]
+sokkin = "sokkin.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sokkin = ["assets/*.png", "assets/*.ico"]
