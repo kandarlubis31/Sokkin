@@ -1387,7 +1387,7 @@ GLOBAL \u2014 tetap jalan walau fokus di Zoom
         apply_window_icon(win)
 
         body = tk.Text(
-            win, width=76, height=32, wrap="word", borderwidth=0,
+            win, width=76, height=36, wrap="word", borderwidth=0,
             highlightthickness=0, padx=16, pady=12,
             font=("Consolas", 9), bg=t["bg"], fg=t["fg"],
             cursor="arrow",

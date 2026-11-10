@@ -11,7 +11,7 @@ Repo: https://github.com/kandarlubis31/Sokkin
 ## Status
 
 - v1.5.0 sudah di-push dan **dirilis publik**: https://github.com/kandarlubis31/Sokkin/releases/tag/v1.5.0
-- Asset rilis: `Sokkin.exe` (11,1 MB), SHA-256 `ad962bd2…67af90e`.
+- Asset rilis: `Sokkin.exe` (11,1 MB), SHA-256 `dc99de8b…84af3`.
 - Selftest terakhir: `SELFTEST OK — kartu: 25, hotkey global: 6/6, ..., banner: True`.
 - Deck pribadi user: `SOKKIN_TEKS_PRIBADI.txt` — **gitignored, jangan pernah di-push**.
 - Deck contoh publik: `SOKKIN_TEKS.txt` (15 kartu generik).
