@@ -1,6 +1,6 @@
 # PLAN — Sokkin
 
-Status: **v1.5.0 siap rilis** (mode banner + polish pra-rilis selesai).
+Status: **v1.5.0 sudah dirilis** (mode banner + polish pra-rilis).
 
 ## Sudah selesai
 
@@ -40,7 +40,7 @@ Status: **v1.5.0 siap rilis** (mode banner + polish pra-rilis selesai).
 - [ ] Upload `showcase/sokkin-social.png` di Settings → Social preview (manual, GitHub tidak punya API-nya)
 - [x] Cek contributors: hanya Aulia Iskandar Lubis
 - [x] Riwayat git di-reset sebelum publish supaya deck pribadi tidak ikut ke repo
-- [ ] Rilis `v1.5.0` + lampirkan exe baru (mode banner)
+- [x] Rilis `v1.5.0` + lampirkan exe baru (mode banner) — https://github.com/kandarlubis31/Sokkin/releases/tag/v1.5.0
 
 ## Backlog berikutnya
 

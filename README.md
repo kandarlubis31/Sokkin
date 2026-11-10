@@ -26,7 +26,7 @@ Overlay teleprompter **selalu-di-depan** untuk Windows — dirancang untuk wawan
 |---|---|
 | ![Tema gelap](showcase/sokkin-gelap.png) | ![Tema sepia](showcase/sokkin-sepia.png) |
 
-**Mode banner** — teks dari semua kartu berjalan terus seperti running text:
+**Mode banner** — teks dari semua kartu (atau satu kartu aktif) berjalan terus seperti running text:
 
 ![Mode banner](showcase/sokkin-banner-mode.png)
 

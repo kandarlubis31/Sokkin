@@ -10,8 +10,8 @@ Repo: https://github.com/kandarlubis31/Sokkin
 
 ## Status
 
-- v1.5.0 di working tree lokal: **mode banner + polish pra-rilis** selesai.
-- Rilis publik terakhir: **v1.4.0** (belum di-push/di-rilis ulang).
+- v1.5.0 sudah di-push dan **dirilis publik**: https://github.com/kandarlubis31/Sokkin/releases/tag/v1.5.0
+- Asset rilis: `Sokkin.exe` (11,1 MB), SHA-256 `ad962bd2…67af90e`.
 - Selftest terakhir: `SELFTEST OK — kartu: 25, hotkey global: 6/6, ..., banner: True`.
 - Deck pribadi user: `SOKKIN_TEKS_PRIBADI.txt` — **gitignored, jangan pernah di-push**.
 - Deck contoh publik: `SOKKIN_TEKS.txt` (15 kartu generik).
@@ -121,6 +121,6 @@ Matikan instance `Sokkin` dulu; kalau tidak, hotkey gagal register (selftest jad
 
 ## Berikutnya (belum dikerjakan)
 
-- Push + rilis `v1.5.0` dengan exe baru.
 - Upload `showcase/sokkin-social.png` ke GitHub Settings → Social preview (manual).
 - Opsi arah banner vertikal, dua baris running text, pause saat hover.
+- Backlog v1.6: click-through, drag & drop `.txt`, deck preview, timer, kustom hotkey.
