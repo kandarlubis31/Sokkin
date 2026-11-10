@@ -17,9 +17,11 @@ if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
 echo [2/2] Membuat Sokkin.exe...
-pyinstaller --noconfirm --onefile --windowed ^
+pyinstaller --noconfirm --onefile --windowed --noupx ^
     --name Sokkin ^
     --icon "src\sokkin\assets\sokkin.ico" ^
+    --version-file "version_info.txt" ^
+    --manifest "sokkin.manifest" ^
     --add-data "SOKKIN_TEKS.txt;." ^
     --add-data "src\sokkin\assets;assets" ^
     --paths "src" ^
