@@ -10,7 +10,9 @@ Repo: https://github.com/kandarlubis31/Sokkin
 
 ## Status
 
-- v1.6.0: build final `dist/Sokkin.exe` (11,13 MB), SHA-256 `ba192ec057971ab9e748175766fdf142e03d161e3b4642cde84fb58848472aff`.
+- v1.6.0 sudah di-push dan **dirilis publik**: https://github.com/kandarlubis31/Sokkin/releases/tag/v1.6.0
+- Asset rilis: `Sokkin.exe` (11,13 MB), SHA-256 `ba192ec057971ab9e748175766fdf142e03d161e3b4642cde84fb58848472aff` (cocok dengan digest GitHub).
+- Versi ini **ditutup**; pengembangan berikutnya masuk backlog v1.7.
 - Selftest terakhir: `SELFTEST OK — kartu: 25, hotkey global: 7/7, ..., banner: True, gulir: True, matematika gulir: True, klik-tembus: True`.
 - Smoke test exe `--selftest` dengan APPDATA bersih: exit code 0.
 - Deck pribadi user: `SOKKIN_TEKS_PRIBADI.txt` — **gitignored, jangan pernah di-push**.
@@ -170,6 +172,5 @@ Matikan instance `Sokkin` dulu; kalau tidak, hotkey gagal register (selftest jad
 ## Berikutnya (belum dikerjakan)
 
 - Upload `showcase/sokkin-social.png` ke GitHub Settings → Social preview (manual).
-- Release v1.6.0 + verifikasi asset (SHA-256 di atas).
-- Backlog: drag & drop `.txt`, dua baris running text, timer wawancara, pilihan font, auto-bump versi dari tag.
+- Backlog v1.7: drag & drop `.txt`, dua baris running text, timer wawancara, pilihan font, auto-bump versi dari tag.
 - Code signing: OV berbayar + reputasi bertahap; EV bukan jalan pintas; Microsoft Store satu-satunya jalur yang dijamin tanpa SmartScreen. Jangan sarankan mematikan Defender atau layanan bypass.

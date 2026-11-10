@@ -1,6 +1,6 @@
 # PLAN — Sokkin
 
-Status: **v1.6.0 siap dirilis** (editor kartu, mode gulir, klik-tembus, hotkey kustom, polish).
+Status: **v1.6.0 sudah dirilis** (editor kartu, mode gulir, klik-tembus, hotkey kustom). Versi ini ditutup.
 
 ## Sudah selesai
 
@@ -63,10 +63,10 @@ Status: **v1.6.0 siap dirilis** (editor kartu, mode gulir, klik-tembus, hotkey k
 - [x] Cek contributors: hanya Aulia Iskandar Lubis
 - [x] Riwayat git di-reset sebelum publish supaya deck pribadi tidak ikut ke repo
 - [x] Rilis `v1.5.0` + lampirkan exe baru (mode banner) — https://github.com/kandarlubis31/Sokkin/releases/tag/v1.5.0
-- [ ] Commit + push v1.6.0
-- [ ] Buat release `v1.6.0` + lampirkan `dist/Sokkin.exe`
-- [ ] Verifikasi asset rilis: SHA-256 `ba192ec0…48472aff`, ukuran 11,13 MB
-- [ ] Pastikan `SOKKIN_TEKS_PRIBADI.txt` tidak ikut ter-commit dan contributors tetap hanya Aulia Iskandar Lubis
+- [x] Commit + push v1.6.0 (`eff9df4`)
+- [x] Buat release `v1.6.0` + lampirkan `dist/Sokkin.exe` — https://github.com/kandarlubis31/Sokkin/releases/tag/v1.6.0
+- [x] Verifikasi asset rilis: SHA-256 `ba192ec0…48472aff`, ukuran 11,13 MB
+- [x] Pastikan `SOKKIN_TEKS_PRIBADI.txt` tidak ikut ter-commit dan contributors tetap hanya Aulia Iskandar Lubis
 
 ## Backlog berikutnya
 
