@@ -22,13 +22,14 @@ Status: **v1.4.0 siap rilis** (bug drag + logo/icon selesai).
 
 ## Publish checklist
 
-- [ ] Buat repo GitHub `kandarlubis31/Sokkin` (public)
-- [ ] Push branch `main`/`master`
-- [ ] Buat release `v1.4.0` + lampirkan `dist/Sokkin.exe`
-- [ ] Set description repo: "Overlay teleprompter selalu-di-depan untuk wawancara & presentasi (Windows, tkinter, tanpa dependensi)"
-- [ ] Set topics: `teleprompter`, `prompter`, `overlay`, `interview`, `windows`, `tkinter`, `python`
-- [ ] Upload `showcase/sokkin-social.png` di Settings → Social preview
-- [ ] Cek contributors: hanya Aulia Iskandar Lubis
+- [x] Buat repo GitHub `kandarlubis31/Sokkin` (public): https://github.com/kandarlubis31/Sokkin
+- [x] Push branch `main`
+- [x] Buat release `v1.4.0` + lampirkan `dist/Sokkin.exe`
+- [x] Set description repo: "Overlay teleprompter selalu-di-depan untuk wawancara & presentasi (Windows, tkinter, tanpa dependensi)"
+- [x] Set topics: `teleprompter`, `prompter`, `overlay`, `interview`, `windows`, `tkinter`, `python`
+- [ ] Upload `showcase/sokkin-social.png` di Settings → Social preview (manual, GitHub tidak punya API-nya)
+- [x] Cek contributors: hanya Aulia Iskandar Lubis
+- [x] Riwayat git di-reset sebelum publish supaya deck pribadi tidak ikut ke repo
 
 ## Backlog berikutnya
 
