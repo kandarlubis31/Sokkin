@@ -1,6 +1,6 @@
 # PLAN — Sokkin
 
-Status: **v1.4.0 siap rilis** (bug drag + logo/icon selesai).
+Status: **v1.5.0 siap rilis** (mode banner selesai).
 
 ## Sudah selesai
 
@@ -15,9 +15,13 @@ Status: **v1.4.0 siap rilis** (bug drag + logo/icon selesai).
 - [x] Fix bug drag: offset mouse dikunci saat tekan, window tidak lari/flicker ke bawah
 - [x] Clamp posisi: panel tidak bisa hilang keluar layar, restore selalu terlihat
 - [x] Logo/ikon Sokkin (`.png` + `.ico` multi-size 16–256 px) di window, tray, dan exe
+- [x] Mode banner: running text kanan→kiri, loop mulus, kecepatan px/detik, ukuran font sendiri
+- [x] Kontrol banner: klik jeda, `F2`/`Spasi`, `[`/`]` atau `←/→` kecepatan, `+/−` atau `↑/↓` ukuran
+- [x] Hotkey global `Ctrl+Alt+B` untuk ganti mode kartu ↔ banner
+- [x] Fix bottom bar: hint/progress/grip sekarang benar-benar tampil (urutan pack)
 - [x] Banner + social preview di `showcase/`
 - [x] Build PyInstaller onefile (`dist/Sokkin.exe`, ±11 MB)
-- [x] Selftest: kartu, 5 hotkey, tampil/hide/show, tray, ikon tray, matematika drag
+- [x] Selftest: kartu, 6 hotkey, tampil/hide/show, tray, ikon tray, matematika drag, mesin banner
 - [x] Git author hanya Aulia Iskandar Lubis (nama + email noreply GitHub)
 
 ## Publish checklist
@@ -30,10 +34,16 @@ Status: **v1.4.0 siap rilis** (bug drag + logo/icon selesai).
 - [ ] Upload `showcase/sokkin-social.png` di Settings → Social preview (manual, GitHub tidak punya API-nya)
 - [x] Cek contributors: hanya Aulia Iskandar Lubis
 - [x] Riwayat git di-reset sebelum publish supaya deck pribadi tidak ikut ke repo
+- [ ] Rilis `v1.5.0` + lampirkan exe baru (mode banner)
 
 ## Backlog berikutnya
 
-### P1 — Import & edit
+### P1 — Banner lanjutan
+- [ ] Opsi arah: atas (vertikal) selain kanan→kiri
+- [ ] Dua baris running text (atas/bawah) dengan kecepatan terpisah
+- [ ] Pause otomatis saat kursor hover (opsional)
+
+### P2 — Import & edit
 - [ ] Tombol "Import" yang lebih kelihatan (sekarang masih `Buka` / `Ctrl+O`)
 - [ ] Drag & drop file `.txt` ke window
 - [ ] Validasi ramah untuk file kosong / encoding aneh
@@ -61,6 +71,8 @@ Status: **v1.4.0 siap rilis** (bug drag + logo/icon selesai).
 - Hotkey pakai `RegisterHotKey` (tanpa admin), bukan pustaka keyboard.
 - Tray pakai `Shell_NotifyIconW` via ctypes murni (tanpa pystray/Pillow).
 - Aset brand digenerate oleh `tools/make_brand.py` (Pillow hanya untuk dev).
+- Banner = satu Canvas dengan dua salinan teks berjarak `BANNER_GAP`; kecepatan px/detik supaya stabil di FPS berapa pun. Jangan pakai `Text`/`Label` yang di-update per frame (berat & tidak mulus).
+- Bar bawah wajib dipack **sebelum** area teks/ticker yang `expand`; kalau tidak, bar hint/progress/grip tertekan keluar.
 
 ## Lokasi file
 

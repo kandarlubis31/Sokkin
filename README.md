@@ -14,6 +14,7 @@ Overlay teleprompter **selalu-di-depan** untuk Windows — dirancang untuk wawan
 - **Tanpa dependensi** — cukup Python 3.10+ dengan tkinter (sudah bawaan).
 - **Hotkey global** — navigasi tetap jalan walau fokus di aplikasi lain (mis. Zoom).
 - **Auto-play** — teks jalan sendiri dengan progress bar, kecepatan bisa diatur.
+- **Mode banner** — teks berjalan kanan→kiri ala billboard; kecepatan & ukuran bisa diatur, klik untuk jeda.
 - **Sembunyi ke tray** — panel hilang ke system tray; klik ikonnya untuk memunculkan lagi.
 - **Ringan & portabel** — satu file `.py`, atau satu `Sokkin.exe` (±11 MB) tanpa perlu Python.
 
@@ -22,6 +23,10 @@ Overlay teleprompter **selalu-di-depan** untuk Windows — dirancang untuk wawan
 | Tema gelap | Tema sepia |
 |---|---|
 | ![Tema gelap](showcase/sokkin-gelap.png) | ![Tema sepia](showcase/sokkin-sepia.png) |
+
+**Mode banner** — teks dari semua kartu berjalan terus seperti running text:
+
+![Mode banner](showcase/sokkin-banner-mode.png)
 
 ## Download
 
@@ -36,8 +41,9 @@ Ambil `Sokkin.exe` terbaru di **[Releases](https://github.com/kandarlubis31/Sokk
 | Kartu per baris | Satu baris di file `.txt` = satu kartu; baris kosong & `#` diabaikan |
 | Selalu di depan | Panel nempel di atas, bisa diseret & di-resize |
 | Sembunyi-pintar | `Esc` / tombol Sembunyi / seret ke atas layar → **minimize ke system tray**; klik ikon tray, `Ctrl+Alt+H`, atau hover tepi atas → tampil lagi |
-| Hotkey global | `Ctrl+Alt+→/←` kartu, `Ctrl+Alt+Spasi` auto, `Ctrl+Alt+H` sembunyi/tampil, `Ctrl+Alt+Q` keluar |
+| Hotkey global | `Ctrl+Alt+→/←` kartu (atau kecepatan di mode banner), `Ctrl+Alt+Spasi` auto/jeda, `Ctrl+Alt+B` ganti mode, `Ctrl+Alt+H` sembunyi/tampil, `Ctrl+Alt+Q` keluar |
 | Auto-play | Progress bar + interval 2–60 detik, putar otomatis dari awal |
+| Mode banner | Semua kartu digabung jadi running text kanan→kiri, loop mulus tanpa jeda; kecepatan 20–600 px/detik, ukuran font sendiri, klik = jeda |
 | 3 tema | Gelap, terang, sepia |
 | Anti-nyasar | Panel tidak bisa diletakkan keluar layar; saat dimunculkan lagi selalu kembali ke area terlihat |
 | Kenang pengaturan | Posisi, ukuran, font, transparansi, file terakhir — tersimpan antar sesi |
@@ -62,7 +68,11 @@ python -m sokkin
 | Kartu berikutnya | `Spasi` · `→` · `↓` · `PageDown` · klik kiri teks · klik kanan sebelumnya |
 | Kartu sebelumnya | `←` · `↑` · `PageUp` |
 | Kartu pertama / terakhir | `Home` / `End` |
-| Seret panel | klik-tahan bar atas / area teks, seret kemana saja |
+| Ganti mode kartu ↔ banner | `F3` · tombol **Banner** / **Kartu** |
+| Banner: jeda / lanjut | `F2` · `Spasi` · klik area banner |
+| Banner: kecepatan | `[` / `]` · `←` / `→` · tombol `«` `»` |
+| Banner: ukuran teks | `+` / `−` · `↑` / `↓` · `Ctrl`+scroll |
+| Seret panel | klik-tahan bar atas / area teks / area banner, seret kemana saja |
 | Sembunyikan panel | `Esc` · tombol **Sembunyi** · seret panel ke atas melewati tepi layar → ke system tray |
 | Munculkan lagi | **klik ikon tray** (klik kanan = menu) · `Ctrl+Alt+H` · hover tepi atas layar |
 | Perbesar / perkecil teks | `+` / `-` · `Ctrl`+scroll |
@@ -74,7 +84,7 @@ python -m sokkin
 | Buka file kartu | `Ctrl+O` |
 | Keluar | `Ctrl+Q` |
 
-Hotkey **global** (berfungsi walau fokus di Zoom): `Ctrl+Alt+→` · `Ctrl+Alt+←` · `Ctrl+Alt+Spasi` · `Ctrl+Alt+H` · `Ctrl+Alt+Q`.
+Hotkey **global** (berfungsi walau fokus di Zoom): `Ctrl+Alt+→` · `Ctrl+Alt+←` · `Ctrl+Alt+Spasi` · `Ctrl+Alt+B` · `Ctrl+Alt+H` · `Ctrl+Alt+Q`.
 
 > Ikon tray kadang masuk ke area overflow Windows. Klik panah **`^`** di taskbar untuk melihatnya.
 
@@ -120,12 +130,13 @@ Sokkin/
 ├── SOKKIN_TEKS.txt         # dek contoh 15 kartu (satu baris = satu kartu)
 ├── build.bat               # build dist/Sokkin.exe via PyInstaller
 ├── pyproject.toml
+├── CONTEXT.md              # ringkasan arsitektur & status untuk sesi berikutnya
 └── PLAN.md                 # catatan pengembangan
 ```
 
 ## Pengaturan
 
-Disimpan di `%APPDATA%\sokkin\settings.json`. Hapus file itu untuk kembali ke pengaturan awal.
+Disimpan di `%APPDATA%\sokkin\settings.json`. Hapus file itu untuk kembali ke pengaturan awal. Yang diingat antara lain: posisi & ukuran panel, tema, font, transparansi, file terakhir, mode terakhir, kecepatan banner, dan ukuran font banner.
 
 ## Lisensi
 

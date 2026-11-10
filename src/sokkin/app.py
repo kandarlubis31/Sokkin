@@ -7,6 +7,7 @@ Fitur:
   * Kartu per baris dari file teks (satu baris = satu kartu)
   * Hotkey GLOBAL Windows (jalan walau fokus di aplikasi lain)
   * Mode auto-play dengan progress bar & kecepatan bisa diatur
+  * Mode banner: teks bergerak kanan→kiri seperti billboard, loop mulus
   * Tema gelap/terang/sepia, ukuran font, transparansi — semua bisa diatur
   * Posisi, ukuran & pengaturan terakhir diingat antar sesi
 
@@ -33,7 +34,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, font as tkfont
 
 APP_NAME = "Sokkin"
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 # --------------------------------------------------------------------------
 # DPI awareness — panggil sebelum window pertama dibuat supaya tidak buram
@@ -143,6 +144,7 @@ class GlobalHotkeys:
         3: (0x0002 | 0x0001 | 0x4000, 0x20, "auto"),        # Ctrl+Alt+Space
         4: (0x0002 | 0x0001 | 0x4000, 0x48, "toggle"),      # Ctrl+Alt+H
         5: (0x0002 | 0x0001 | 0x4000, 0x51, "quit"),        # Ctrl+Alt+Q
+        6: (0x0002 | 0x0001 | 0x4000, 0x42, "banner"),      # Ctrl+Alt+B
     }
 
     def __init__(self, sink: "queue.Queue[int]"):
@@ -393,6 +395,16 @@ class TrayIcon:
 class SokkinApp:
     MIN_W, MIN_H = 480, 140
     FONT_MIN, FONT_MAX = 10, 72
+    BANNER_SIZE_MIN, BANNER_SIZE_MAX = 12, 120
+    BANNER_SPEED_MIN, BANNER_SPEED_MAX = 20, 600
+    BANNER_SPEED_STEP = 20
+    BANNER_GAP = 140          # jarak antar pengulangan teks (px)
+    BANNER_FRAME_MS = 16      # ~60 fps untuk gerakan mulus
+    BANNER_SEP = "   \u2022   "
+    DEFAULT_HINT = ("Spasi/\u2192 lanjut  \u00b7  \u2190 balik  \u00b7  F2 auto  "
+                    "\u00b7  Esc sembunyi  \u00b7  global: Ctrl+Alt+\u2192")
+    BANNER_HINT = ("Klik = jeda \u00b7 F2 jeda/lanjut \u00b7 [ ] atau \u2190/\u2192 kecepatan "
+                   "\u00b7 +/\u2212 atau \u2191/\u2193 ukuran \u00b7 seret = pindah")
     ALPHA_MIN, ALPHA_MAX = 0.40, 1.0
     INTERVAL_MIN, INTERVAL_MAX = 2, 60
     HOVER_EDGE = 12          # zona tepi atas layar (px) untuk hover-reveal
@@ -414,6 +426,21 @@ class SokkinApp:
         self.auto_next_at = 0.0
         self.topmost = bool(self.settings.get("topmost", True))
 
+        self.mode = str(self.settings.get("mode", "card"))
+        if self.mode not in ("card", "banner"):
+            self.mode = "card"
+        self.banner_speed = max(self.BANNER_SPEED_MIN, min(
+            self.BANNER_SPEED_MAX, int(self.settings.get("banner_speed", 120))))
+        self.banner_size = max(self.BANNER_SIZE_MIN, min(
+            self.BANNER_SIZE_MAX, int(self.settings.get("banner_size", 44))))
+        self._banner_paused = False
+        self._banner_x = 0.0
+        self._banner_text = ""
+        self._banner_text_w = 0.0
+        self._banner_period = 0.0
+        self._banner_last_t = time.monotonic()
+        self._banner_ok = False
+
         self._mv: tuple[int, int] | None = None      # offset seret bar
         self._rs: tuple[int, int, int, int] | None = None  # awal resize
         self._text_press: tuple[int, int] | None = None    # posisi tekan mouse
@@ -434,6 +461,10 @@ class SokkinApp:
             self.load_deck(path)
         else:
             self._set_card("(tidak ada file kartu) — tekan Ctrl+O untuk membuka .txt")
+
+        # mode tersimpan (banner) harus dipasang sebelum window tampil
+        if self.mode == "banner":
+            self.set_mode("banner")
 
         # tampilkan window — _build_ui tadi menariknya ke mode withdraw
         # untuk menghindari kedip saat geometri belum siap.
@@ -460,6 +491,7 @@ class SokkinApp:
         self.root.after(50, self._poll_hotkeys)
         self.root.after(50, self._poll_tray)
         self.root.after(100, self._tick)
+        self.root.after(self.BANNER_FRAME_MS, self._banner_tick)
 
         if self.selftest:
             # verifikasi window tampil, lalu siklus hide (hover-armed) → show
@@ -479,6 +511,24 @@ class SokkinApp:
                     and not self._hover_armed
                 )
 
+            def _check_banner():
+                # mode banner: item canvas dibuat, teks bergerak sesuai px/detik
+                self.set_mode("banner")
+                self.root.update_idletasks()
+                self._banner_ok = self._banner_ok and (
+                    self.mode == "banner"
+                    and len(self.ticker.find_all()) >= 2
+                    and self._banner_text_w > 0
+                    and self._banner_period > self._banner_text_w
+                )
+                if self._banner_text_w > 0:
+                    before = self._banner_x
+                    self._banner_advance(0.25)
+                    moved = before - self._banner_x
+                    self._banner_ok = self._banner_ok and abs(
+                        moved - self.banner_speed * 0.25) < 0.51
+                self.set_mode("card")
+
             self._visible_ok = False
             self._hide_ok = False
             self._show_ok = False
@@ -490,9 +540,19 @@ class SokkinApp:
                 and self._clamp_position(0, 9999, 800, 200, bounds)[1] == 880
                 and self._clamp_position(0, -9999, 800, 200, bounds)[1] == -160
             )
+            # mesin marquee: 120 px/s selama 0,25 s = 30 px; wrap = +periode
+            b0 = self._banner_next_x(100.0, 500.0, 620.0, 120.0, 0.25)
+            b1 = self._banner_next_x(-500.0, 500.0, 620.0, 120.0, 0.25)
+            self._banner_ok = (
+                abs(b0 - 70.0) < 1e-6
+                and abs(b1 - 90.0) < 1e-6
+                and self.BANNER_SPEED_MIN <= self.banner_speed <= self.BANNER_SPEED_MAX
+                and self.BANNER_SIZE_MIN <= self.banner_size <= self.BANNER_SIZE_MAX
+            )
             self.root.after(600, _check_visible)
             self.root.after(900, _check_hide_show)
-            self.root.after(1200, lambda: setattr(
+            self.root.after(1100, _check_banner)
+            self.root.after(1300, lambda: setattr(
                 self, "_tray_seen_ok",
                 self._tray_ok and self.tray_q.qsize() >= 0,  # tray hidup & queue jalan
             ))
@@ -532,6 +592,7 @@ class SokkinApp:
                              command=self.prev_card, cursor="hand2")
         btn_next = tk.Button(self.bar, text="\u25b6", width=3, relief="flat",
                              command=self.next_card, cursor="hand2")
+        self.btn_prev, self.btn_next = btn_prev, btn_next
         self.lbl_pos = tk.Label(self.bar, text="0/0", anchor="w")
         self.lbl_file = tk.Label(self.bar, text="", anchor="w")
 
@@ -558,9 +619,16 @@ class SokkinApp:
         add_btn("Sembunyi", self.hide)
         add_btn("Buka", self.open_file)
         add_btn("Tema", self.cycle_theme)
+        self.btn_mode = add_btn("Banner", self.toggle_mode)
+        self.btn_slower = add_btn("\u00ab", lambda: self.change_speed(-self.BANNER_SPEED_STEP))
+        self.btn_faster = add_btn("\u00bb", lambda: self.change_speed(+self.BANNER_SPEED_STEP))
         self.btn_auto = add_btn("Auto", self.toggle_auto)
         add_btn("\u2212", lambda: self.change_font(-2))
         add_btn("+", lambda: self.change_font(2))
+
+        # tombol kecepatan hanya relevan di mode banner
+        self.btn_slower.pack_forget()
+        self.btn_faster.pack_forget()
 
         # bar atas bisa diseret (kecuali tombol — tombol sudah punya aksi)
         bind_move(self.bar)
@@ -581,6 +649,18 @@ class SokkinApp:
         self.text.bind("<Button-3>", lambda e: self.prev_card(), add="+")
         self.text.bind("<Control-MouseWheel>", self._on_ctrl_wheel, add="+")
 
+        # --- area banner: canvas dengan teks berjalan (kanan → kiri)
+        self.banner_font = tkfont.Font(
+            family="Segoe UI", size=self.banner_size, weight="bold")
+        self.ticker = tk.Canvas(r, borderwidth=0, highlightthickness=0,
+                                bd=0, cursor="fleur")
+        self.ticker.bind("<Button-1>", self._on_ticker_press, add="+")
+        self.ticker.bind("<B1-Motion>", self._on_ticker_motion, add="+")
+        self.ticker.bind("<ButtonRelease-1>", self._on_ticker_release, add="+")
+        self.ticker.bind("<Button-3>", lambda e: self.prev_card(), add="+")
+        self.ticker.bind("<Control-MouseWheel>", self._on_ctrl_wheel, add="+")
+        self.ticker.bind("<Configure>", lambda e: self._banner_reposition(), add="+")
+
         # --- bar bawah: hint + progress + grip resize
         self.bottom = tk.Frame(r, height=26)
         self.bottom.pack(fill="x", side="bottom")
@@ -588,8 +668,7 @@ class SokkinApp:
 
         self.lbl_hint = tk.Label(
             self.bottom, anchor="w", font=("Segoe UI", 8),
-            text="Spasi/\u2192 lanjut  \u00b7  \u2190 balik  \u00b7  F2 auto  "
-                 "\u00b7  Esc sembunyi  \u00b7  global: Ctrl+Alt+\u2192",
+            text=self.DEFAULT_HINT,
         )
         self.lbl_hint.pack(side="left", padx=8, fill="x")
         bind_move(self.bottom)
@@ -603,6 +682,11 @@ class SokkinApp:
         self.grip.pack(side="right", padx=2)
         self.grip.bind("<Button-1>", self._resize_start)
         self.grip.bind("<B1-Motion>", self._resize_motion)
+
+        # Bar bawah harus dipack SEBELUM area teks yang expand; kalau tidak,
+        # area teks (yang tinggi naturalnya besar) menghabiskan ruang dan bar
+        # hint/progress/grip tidak pernah tampil.
+        self.bottom.pack_configure(before=self.text)
 
         # --- keyboard lokal
         r.bind("<Key>", self._on_key)
@@ -632,11 +716,15 @@ class SokkinApp:
                 activebackground=t["sel"], activeforeground=t["fg"],
             )
         self.progress.configure(bg=t["bar_bg"], highlightthickness=0)
+        self.ticker.configure(bg=t["bg"], highlightthickness=0)
+        self.ticker.itemconfigure("banner_text", fill=t["fg"])
+        self.ticker.itemconfigure("banner_line", fill=t["accent"])
         self._draw_progress()
 
     def cycle_theme(self) -> None:
         self.theme_idx = (self.theme_idx + 1) % len(THEMES)
         self._apply_theme()
+        self._update_status()
 
     # ------------------------------------------------------- window state
     def _apply_window_state(self) -> None:
@@ -656,6 +744,7 @@ class SokkinApp:
         self.root.attributes("-topmost", self.topmost)  # re-assert sesudah show
         self.root.lift()
         self.root.focus_force()
+        self._banner_last_t = time.monotonic()
 
     def hide(self) -> None:
         """Sembunyikan panel ke system tray.
@@ -757,6 +846,8 @@ class SokkinApp:
         self.settings["last_file"] = str(path)
         self.lbl_file.configure(text=path.name)
         self.show_card(0)
+        if self.mode == "banner":
+            self._banner_rebuild(reset=True)
 
     def open_file(self) -> None:
         path = filedialog.askopenfilename(
@@ -796,20 +887,53 @@ class SokkinApp:
             self.show_card(self.index - 1)
 
     def _update_status(self) -> None:
-        pos = f"{self.index + 1}/{len(self.cards)}"
-        if self.auto_on:
-            pos += f"  \u00b7  auto {self.interval}s"
-        self.lbl_pos.configure(text=pos)
+        t = THEMES[self.theme_idx][1]
+        if self.mode == "banner":
+            state = "jeda" if self._banner_paused else "jalan"
+            self.lbl_pos.configure(
+                text=f"Banner \u00b7 {self.banner_speed} px/s \u00b7 "
+                     f"{self.banner_size} pt \u00b7 {state}")
+            self.btn_auto.configure(text="Lanjut" if self._banner_paused else "Jeda")
+            auto_active = not self._banner_paused
+            mode_active = True
+        else:
+            pos = f"{self.index + 1}/{len(self.cards)}"
+            if self.auto_on:
+                pos += f"  \u00b7  auto {self.interval}s"
+            self.lbl_pos.configure(text=pos)
+            self.btn_auto.configure(text="Auto")
+            auto_active = self.auto_on
+            mode_active = False
+
         self.btn_auto.configure(
-            bg=THEMES[self.theme_idx][1]["accent"] if self.auto_on
-            else THEMES[self.theme_idx][1]["bar_bg"],
-            fg="#ffffff" if self.auto_on else THEMES[self.theme_idx][1]["bar_fg"],
+            bg=t["accent"] if auto_active else t["bar_bg"],
+            fg="#ffffff" if auto_active else t["bar_fg"],
+        )
+        self.btn_mode.configure(
+            text="Kartu" if self.mode == "banner" else "Banner",
+            bg=t["sel"] if mode_active else t["bar_bg"],
+            fg=t["fg"] if mode_active else t["bar_fg"],
         )
 
     # ------------------------------------------------------- pengaturan
     def change_font(self, delta: int) -> None:
+        if self.mode == "banner":
+            self.change_banner_size(delta)
+            return
         self.font_size = max(self.FONT_MIN, min(self.FONT_MAX, self.font_size + delta))
         self.text_font.configure(size=self.font_size)
+
+    def change_banner_size(self, delta: int) -> None:
+        self.banner_size = max(self.BANNER_SIZE_MIN, min(
+            self.BANNER_SIZE_MAX, self.banner_size + delta))
+        self.banner_font.configure(size=self.banner_size)
+        self._banner_rebuild(reset=False)
+        self._update_status()
+
+    def change_speed(self, delta: int) -> None:
+        self.banner_speed = max(self.BANNER_SPEED_MIN, min(
+            self.BANNER_SPEED_MAX, self.banner_speed + delta))
+        self._update_status()
 
     def change_alpha(self, delta: float) -> None:
         self.alpha = round(max(self.ALPHA_MIN, min(self.ALPHA_MAX, self.alpha + delta)), 2)
@@ -822,9 +946,136 @@ class SokkinApp:
         self._update_status()
 
     def toggle_auto(self) -> None:
+        if self.mode == "banner":
+            self.toggle_banner_pause()
+            return
         self.auto_on = not self.auto_on
         self.auto_next_at = time.monotonic() + self.interval
         self._update_status()
+
+    # ------------------------------------------------------ mode banner
+    def toggle_mode(self) -> None:
+        self.set_mode("card" if self.mode == "banner" else "banner")
+
+    def set_mode(self, mode: str) -> None:
+        """Ganti tampilan kartu ↔ banner tanpa mengubah posisi window."""
+        if mode not in ("card", "banner"):
+            return
+        if mode == self.mode and getattr(self, "_ui_mode", None) == mode:
+            self._update_status()
+            return
+
+        self.mode = mode
+        if mode == "banner":
+            self._banner_paused = False
+            self._banner_last_t = time.monotonic()
+            self.btn_prev.pack_forget()
+            self.btn_next.pack_forget()
+            self.text.pack_forget()
+            self.ticker.pack(fill="both", expand=True, side="top")
+            self.progress.pack_forget()
+            self.btn_slower.pack(side="right", padx=2, pady=4)
+            self.btn_faster.pack(side="right", padx=2, pady=4)
+            self.lbl_hint.configure(text=self.BANNER_HINT)
+            self._banner_rebuild(reset=True)
+            self.root.after_idle(self._banner_reposition)
+        else:
+            self.ticker.pack_forget()
+            self.btn_prev.pack(side="left", padx=(6, 0), pady=4, before=self.lbl_pos)
+            self.btn_next.pack(side="left", padx=(2, 0), pady=4, before=self.lbl_pos)
+            self.text.pack(fill="both", expand=True, side="top")
+            self.progress.pack(side="right", padx=(0, 2), pady=6, before=self.grip)
+            self.btn_slower.pack_forget()
+            self.btn_faster.pack_forget()
+            self.lbl_hint.configure(text=self.DEFAULT_HINT)
+            if self.auto_on:
+                self.auto_next_at = time.monotonic() + self.interval
+
+        self._ui_mode = mode
+        self._apply_theme()
+        self._update_status()
+
+    def toggle_banner_pause(self) -> None:
+        self._banner_paused = not self._banner_paused
+        self._banner_last_t = time.monotonic()
+        self._update_status()
+
+    def _banner_rebuild(self, reset: bool = False) -> None:
+        """Susun ulang teks banner (semua kartu digabung dengan pemisah)."""
+        text = (self.BANNER_SEP.join(self.cards) if self.cards
+                else "Sokkin \u2014 tekan Ctrl+O untuk membuka file kartu")
+        self.banner_font.configure(size=self.banner_size)
+        old_x = self._banner_x
+        self._banner_text = text
+        self._banner_text_w = max(1.0, float(self.banner_font.measure(text)))
+        self._banner_period = self._banner_text_w + self.BANNER_GAP
+        self._banner_x = 0.0 if reset else old_x
+
+        try:
+            w = max(1, self.ticker.winfo_width())
+            h = max(1, self.ticker.winfo_height())
+        except tk.TclError:
+            w, h = 800, 120
+        self.ticker.delete("banner_text")
+        self.ticker.delete("banner_line")
+        fill = THEMES[self.theme_idx][1]["fg"]
+        accent = THEMES[self.theme_idx][1]["accent"]
+        y = h / 2
+        # dua salinan: saat salinan pertama habis, salinan kedua sudah masuk,
+        # jadi loop terlihat tanpa jeda kosong.
+        self.ticker.create_text(
+            self._banner_x, y, text=text, font=self.banner_font,
+            fill=fill, anchor="w", tags=("banner_text", "banner_a"))
+        self.ticker.create_text(
+            self._banner_x + self._banner_period, y, text=text,
+            font=self.banner_font, fill=fill, anchor="w",
+            tags=("banner_text", "banner_b"))
+        self.ticker.create_line(
+            0, h - 2, w, h - 2, width=3, fill=accent, tags=("banner_line",))
+
+    def _banner_reposition(self) -> None:
+        if not self._banner_text:
+            return
+        try:
+            w = max(1, self.ticker.winfo_width())
+            h = max(1, self.ticker.winfo_height())
+            self.ticker.coords("banner_a", self._banner_x, h / 2)
+            self.ticker.coords("banner_b", self._banner_x + self._banner_period, h / 2)
+            self.ticker.coords("banner_line", 0, h - 2, w, h - 2)
+        except tk.TclError:
+            pass
+
+    @staticmethod
+    def _banner_next_x(x: float, text_w: float, period: float,
+                       speed: float, dt: float) -> float:
+        """Posisi x berikutnya; px/detik supaya kecepatan stabil di FPS apa pun."""
+        x -= speed * dt
+        if text_w > 0 and x <= -text_w:
+            x += period
+        return x
+
+    def _banner_advance(self, dt: float) -> None:
+        if self._banner_text_w <= 0 or self._banner_period <= 0:
+            return
+        self._banner_x = self._banner_next_x(
+            self._banner_x, self._banner_text_w, self._banner_period,
+            self.banner_speed, dt)
+        self._banner_reposition()
+
+    def _banner_tick(self) -> None:
+        """Animasi 60 fps; berhenti saat panel disembunyikan atau dijeda."""
+        if self.mode == "banner":
+            now = time.monotonic()
+            dt = now - self._banner_last_t
+            self._banner_last_t = now
+            try:
+                mapped = bool(self.root.winfo_ismapped())
+            except tk.TclError:
+                mapped = False
+            if not self._banner_paused and mapped:
+                self._banner_advance(min(dt, 0.1))
+        if not self.selftest or self.root.winfo_exists():
+            self.root.after(self.BANNER_FRAME_MS, self._banner_tick)
 
     # -------------------------------------------------------- event loop
     def _poll_hotkeys(self) -> None:
@@ -833,11 +1084,19 @@ class SokkinApp:
                 hid = self.hotkey_q.get_nowait()
                 name = GlobalHotkeys.HOTKEYS.get(hid, (0, 0, ""))[2]
                 if name == "next":
-                    self.next_card()
+                    if self.mode == "banner":
+                        self.change_speed(+self.BANNER_SPEED_STEP)
+                    else:
+                        self.next_card()
                 elif name == "prev":
-                    self.prev_card()
+                    if self.mode == "banner":
+                        self.change_speed(-self.BANNER_SPEED_STEP)
+                    else:
+                        self.prev_card()
                 elif name == "auto":
                     self.toggle_auto()
+                elif name == "banner":
+                    self.toggle_mode()
                 elif name == "toggle":
                     self.toggle_visibility()
                 elif name == "quit":
@@ -877,7 +1136,8 @@ class SokkinApp:
     def _tick(self) -> None:
         """Timer auto-play + progress bar + hover-reveal (10 kali per detik)."""
         self._check_hover_reveal()
-        if self.auto_on and str(self.root.state()) != "withdrawn" and self.cards:
+        if (self.mode == "card" and self.auto_on
+                and str(self.root.state()) != "withdrawn" and self.cards):
             remaining = self.auto_next_at - time.monotonic()
             if remaining <= 0:
                 self.next_card()
@@ -905,11 +1165,47 @@ class SokkinApp:
         k = e.keysym
         ctrl = bool(e.state & 0x0004)
 
+        # kontrol global lokal (berlaku di kedua mode)
         if ctrl and k == "Up":
             self.change_alpha(+0.05)
-        elif ctrl and k == "Down":
+            return
+        if ctrl and k == "Down":
             self.change_alpha(-0.05)
-        elif k in ("space", "Right", "Down", "Next"):
+            return
+        if ctrl and k in ("o", "O"):
+            self.open_file()
+            return
+        if ctrl and k in ("q", "Q"):
+            self.quit()
+            return
+        if ctrl and k in ("t", "T"):
+            self.cycle_theme()
+            return
+        if k == "F3":
+            self.toggle_mode()
+            return
+        if k == "Escape":
+            self.hide()
+            return
+        if k == "F10":
+            self.toggle_topmost()
+            return
+
+        if self.mode == "banner":
+            # banner: spasi/F2 jeda, panah atur kecepatan/ukuran
+            if k in ("space", "F2"):
+                self.toggle_banner_pause()
+            elif k in ("Left", "bracketleft"):
+                self.change_speed(-self.BANNER_SPEED_STEP)
+            elif k in ("Right", "bracketright"):
+                self.change_speed(+self.BANNER_SPEED_STEP)
+            elif k in ("Up", "plus", "equal", "KP_Add"):
+                self.change_banner_size(+2)
+            elif k in ("Down", "minus", "KP_Subtract"):
+                self.change_banner_size(-2)
+            return
+
+        if k in ("space", "Right", "Down", "Next"):
             self.next_card()
         elif k in ("Left", "Up", "Prior"):
             self.prev_card()
@@ -923,24 +1219,12 @@ class SokkinApp:
             self.change_font(-2)
         elif k == "F2":
             self.toggle_auto()
-        elif k == "F10":
-            self.toggle_topmost()
         elif k == "bracketleft":
             self.change_interval(+1)
         elif k == "bracketright":
             self.change_interval(-1)
-        elif k == "Escape":
-            self.hide()
-        elif ctrl and k in ("o", "O"):
-            self.open_file()
-        elif ctrl and k in ("q", "Q"):
-            self.quit()
-        elif ctrl and k in ("t", "T"):
-            self.cycle_theme()
-        elif ctrl and k in ("minus", "KP_Subtract"):
-            self.change_font(-2)
 
-    def _on_text_press(self, e) -> None:
+    def _begin_drag(self, e) -> None:
         # tekan mouse di area teks: catat posisi awal + offset tetap ke window.
         # Offset WAJIB dikunci di sini. Kalau dihitung ulang tiap gerakan pakai
         # posisi window yang sedang bergerak, hasilnya feedback loop: panel
@@ -952,8 +1236,8 @@ class SokkinApp:
         self._drag_pos = None
         self._drag_start_y = self.root.winfo_rooty()
 
-    def _on_text_motion(self, e) -> None:
-        # seret area teks = seret window (kursor fleur)
+    def _drag_move(self, e) -> None:
+        # seret area teks/banner = seret window (kursor fleur)
         if not self._text_press or not self._text_grab:
             return
         dx = e.x_root - self._text_press[0]
@@ -964,11 +1248,21 @@ class SokkinApp:
             x, y = self._drag_target(e.x_root, e.y_root, self._text_grab)
             self._drag_window_to(x, y)
 
-    def _on_text_release(self, e) -> None:
+    def _complete_drag(self) -> bool:
         moved = self._text_moved
         self._text_press = None
         self._text_grab = None
         self._text_moved = False
+        return moved
+
+    def _on_text_press(self, e) -> None:
+        self._begin_drag(e)
+
+    def _on_text_motion(self, e) -> None:
+        self._drag_move(e)
+
+    def _on_text_release(self, e) -> None:
+        moved = self._complete_drag()
         if moved:
             self._finish_drag()
         else:
@@ -976,6 +1270,23 @@ class SokkinApp:
             self._drag_start_y = None
             # klik tanpa seret = kartu berikutnya (perilaku lama)
             self.next_card()
+            self._focus_back()
+
+    def _on_ticker_press(self, e) -> None:
+        self._begin_drag(e)
+
+    def _on_ticker_motion(self, e) -> None:
+        self._drag_move(e)
+
+    def _on_ticker_release(self, e) -> None:
+        moved = self._complete_drag()
+        if moved:
+            self._finish_drag()
+        else:
+            self._drag_pos = None
+            self._drag_start_y = None
+            # klik tanpa seret di banner = jeda/lanjut (biar gampang dibaca)
+            self.toggle_banner_pause()
             self._focus_back()
 
     def _on_ctrl_wheel(self, e) -> None:
@@ -1119,6 +1430,9 @@ class SokkinApp:
                 "alpha": self.alpha,
                 "interval": self.interval,
                 "topmost": self.topmost,
+                "mode": self.mode,
+                "banner_speed": self.banner_speed,
+                "banner_size": self.banner_size,
             })
             save_settings(self.settings)
         finally:
@@ -1158,11 +1472,13 @@ def main() -> None:
         tray = getattr(app, "_tray_ok", False)
         icon = getattr(app, "_tray_icon_ok", False)
         drag = getattr(app, "_drag_ok", False)
-        ok = n > 0 and hk == 5 and vis and hid and shw and tray and icon and drag
+        banner = getattr(app, "_banner_ok", False)
+        ok = (n > 0 and hk == 6 and vis and hid and shw and tray
+              and icon and drag and banner)
         print(f"SELFTEST {'OK' if ok else 'GAGAL'} — kartu: {n}, "
-              f"hotkey global: {hk}/5, window tampil: {vis}, "
+              f"hotkey global: {hk}/6, window tampil: {vis}, "
               f"hide+hover: {hid}, show ulang: {shw}, tray: {tray}, "
-              f"ikon tray: {icon}, drag: {drag}")
+              f"ikon tray: {icon}, drag: {drag}, banner: {banner}")
         sys.exit(0 if ok else 1)
 
 

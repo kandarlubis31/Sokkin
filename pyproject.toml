@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sokkin"
-version = "1.4.0"
+version = "1.5.0"
 description = "Overlay teleprompter selalu-di-depan untuk wawancara & presentasi (Windows, tkinter)"
 readme = "README.md"
 license = { file = "LICENSE" }
