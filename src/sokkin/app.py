@@ -28,6 +28,7 @@ import queue
 import sys
 import threading
 import time
+import traceback
 from pathlib import Path
 
 import tkinter as tk
@@ -100,16 +101,115 @@ THEMES: list[tuple[str, dict[str, str]]] = [
 ]
 
 # --------------------------------------------------------------------------
-# Pengaturan (disimpan di %APPDATA%/sokkin/settings.json)
+# Pengaturan & log (disimpan di %APPDATA%/sokkin/)
 # --------------------------------------------------------------------------
-def settings_path() -> Path:
+def app_data_dir() -> Path:
     if sys.platform == "win32":
         base = Path(os.environ.get("APPDATA") or Path.home())
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config"))
     d = base / "sokkin"
     d.mkdir(parents=True, exist_ok=True)
-    return d / "settings.json"
+    return d
+
+
+def settings_path() -> Path:
+    return app_data_dir() / "settings.json"
+
+
+def log_path() -> Path:
+    return app_data_dir() / "sokkin.log"
+
+
+def log_exception(exc_type, exc, tb, context: str = "") -> None:
+    """Tulis traceback ke sokkin.log — exe windowed tidak punya konsol."""
+    try:
+        path = log_path()
+        if path.is_file() and path.stat().st_size > 512_000:
+            path.replace(path.with_name("sokkin.old.log"))
+        with path.open("a", encoding="utf-8") as f:
+            f.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
+                    f"v{VERSION} {context}\n")
+            traceback.print_exception(exc_type, exc, tb, file=f)
+    except Exception:
+        pass
+
+
+def install_exception_logging(root: tk.Tk | None = None) -> None:
+    """Tangkap error dari main thread, thread lain, dan callback Tk."""
+    def main_hook(exc_type, exc, tb):
+        log_exception(exc_type, exc, tb, "uncaught")
+
+    def thread_hook(args):
+        name = getattr(getattr(args, "thread", None), "name", "?")
+        log_exception(args.exc_type, args.exc_value, args.exc_traceback,
+                      f"thread {name}")
+
+    sys.excepthook = main_hook
+    threading.excepthook = thread_hook
+    if root is not None:
+        root.report_callback_exception = (
+            lambda exc_type, exc, tb: log_exception(
+                exc_type, exc, tb, "UI callback"))
+
+
+# --------------------------------------------------------------------------
+# Satu instance saja — named mutex Windows
+# --------------------------------------------------------------------------
+_SINGLE_INSTANCE_HANDLE = None
+
+
+def _show_already_running() -> None:
+    text = ("Sokkin sudah berjalan.\n\n"
+            "Cek ikon Sokkin di system tray (pojok kanan bawah), atau tekan "
+            "Ctrl+Alt+H untuk menampilkan panelnya.")
+    _message_box(text, "Sokkin", 0x00000040 | 0x00010000)
+
+
+def _show_fatal_error() -> None:
+    text = ("Sokkin mengalami error saat dijalankan.\n\n"
+            f"Detail tersimpan di:\n{log_path()}")
+    _message_box(text, "Sokkin \u2014 error", 0x00000010 | 0x00010000)
+
+
+def _message_box(text: str, title: str, flags: int) -> None:
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        user32.MessageBoxW.argtypes = [
+            wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.UINT]
+        user32.MessageBoxW.restype = ctypes.c_int
+        user32.MessageBoxW(None, text, title, flags)
+    except Exception:
+        pass
+
+
+def acquire_single_instance() -> bool:
+    """True kalau kita instance pertama; False kalau Sokkin sudah jalan."""
+    global _SINGLE_INSTANCE_HANDLE
+    if sys.platform != "win32":
+        return True
+    try:
+        from ctypes import wintypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateMutexW.argtypes = [
+            wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        kernel32.GetLastError.restype = wintypes.DWORD
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.CreateMutexW(
+            None, False, "Local\\Sokkin.SingleInstance")
+        if not handle:
+            return True
+        if kernel32.GetLastError() == 183:      # ERROR_ALREADY_EXISTS
+            kernel32.CloseHandle(handle)
+            _show_already_running()
+            return False
+        _SINGLE_INSTANCE_HANDLE = handle          # tahan sampai proses selesai
+        return True
+    except Exception:
+        return True
 
 
 def load_settings() -> dict:
@@ -146,6 +246,14 @@ class GlobalHotkeys:
         5: (0x0002 | 0x0001 | 0x4000, 0x51, "quit"),        # Ctrl+Alt+Q
         6: (0x0002 | 0x0001 | 0x4000, 0x42, "banner"),      # Ctrl+Alt+B
     }
+    LABELS = {
+        "next": "Ctrl+Alt+\u2192",
+        "prev": "Ctrl+Alt+\u2190",
+        "auto": "Ctrl+Alt+Spasi",
+        "toggle": "Ctrl+Alt+H",
+        "quit": "Ctrl+Alt+Q",
+        "banner": "Ctrl+Alt+B",
+    }
 
     def __init__(self, sink: "queue.Queue[int]"):
         self._sink = sink
@@ -154,6 +262,7 @@ class GlobalHotkeys:
         self._registered: list[int] = []
         self._supported = sys.platform == "win32"
         self.registered_count = 0
+        self.failed: list[str] = []
 
     def start(self) -> None:
         if not self._supported:
@@ -180,6 +289,10 @@ class GlobalHotkeys:
             if user32.RegisterHotKey(None, hid, mod, vk):
                 self._registered.append(hid)
         self.registered_count = len(self._registered)
+        self.failed = [
+            name for hid, (_mod, _vk, name) in self.HOTKEYS.items()
+            if hid not in self._registered
+        ]
 
         msg = wintypes.MSG()
         while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
@@ -402,9 +515,45 @@ class SokkinApp:
     BANNER_FRAME_MS = 16      # ~60 fps untuk gerakan mulus
     BANNER_SEP = "   \u2022   "
     DEFAULT_HINT = ("Spasi/\u2192 lanjut  \u00b7  \u2190 balik  \u00b7  F2 auto  "
-                    "\u00b7  Esc sembunyi  \u00b7  global: Ctrl+Alt+\u2192")
+                    "\u00b7  F1 bantuan  \u00b7  Esc sembunyi")
     BANNER_HINT = ("Klik = jeda \u00b7 F2 jeda/lanjut \u00b7 [ ] atau \u2190/\u2192 kecepatan "
-                   "\u00b7 +/\u2212 atau \u2191/\u2193 ukuran \u00b7 seret = pindah")
+                   "\u00b7 +/\u2212 atau \u2191/\u2193 ukuran \u00b7 F1 bantuan \u00b7 seret = pindah")
+    HELP_TEXT = """KARTU
+  Spasi / \u2192 / klik teks    kartu berikutnya
+  \u2190 / \u2191 / klik kanan       kartu sebelumnya
+  Home / End                kartu pertama / terakhir
+  + / \u2212 / Ctrl+scroll       ukuran teks
+  [ / ]                     interval auto-play
+  F2                        auto-play on/off
+  F1                        bantuan ini
+
+BANNER
+  F3 / tombol Banner        ganti mode kartu \u2194 banner
+  Klik area banner          jeda / lanjut
+  F2 atau Spasi             jeda / lanjut
+  [ ] atau \u2190 \u2192            kecepatan 20\u2013600 px/detik
+  + \u2212 atau \u2191 \u2193            ukuran teks banner
+  Tombol Semua/Kartu ini    semua kartu atau kartu aktif saja
+  PgUp / PgDn               ganti kartu (scope: kartu ini)
+
+PANEL
+  Seret bar / teks / banner pindahkan panel
+  Sudut kanan bawah         ubah ukuran panel
+  Ctrl+\u2191 / Ctrl+\u2193           transparansi
+  Ctrl+T                    ganti tema
+  F10                       selalu di depan on/off
+  Esc                       sembunyikan ke tray
+  Ctrl+O                    buka file .txt
+  Ctrl+Q                    keluar
+
+GLOBAL \u2014 tetap jalan walau fokus di Zoom
+  Ctrl+Alt+\u2192 / \u2190            kartu berikutnya / sebelumnya
+                            (di banner: kecepatan)
+  Ctrl+Alt+Spasi            auto-play / jeda banner
+  Ctrl+Alt+B                ganti mode kartu \u2194 banner
+  Ctrl+Alt+H                tampilkan / sembunyikan
+  Ctrl+Alt+Q                keluar
+"""
     ALPHA_MIN, ALPHA_MAX = 0.40, 1.0
     INTERVAL_MIN, INTERVAL_MAX = 2, 60
     HOVER_EDGE = 12          # zona tepi atas layar (px) untuk hover-reveal
@@ -433,6 +582,9 @@ class SokkinApp:
             self.BANNER_SPEED_MAX, int(self.settings.get("banner_speed", 120))))
         self.banner_size = max(self.BANNER_SIZE_MIN, min(
             self.BANNER_SIZE_MAX, int(self.settings.get("banner_size", 44))))
+        self.banner_scope = str(self.settings.get("banner_scope", "all"))
+        if self.banner_scope not in ("all", "card"):
+            self.banner_scope = "all"
         self._banner_paused = False
         self._banner_x = 0.0
         self._banner_text = ""
@@ -440,6 +592,8 @@ class SokkinApp:
         self._banner_period = 0.0
         self._banner_last_t = time.monotonic()
         self._banner_ok = False
+        self._warned_hotkeys = False
+        self._help_win: tk.Toplevel | None = None
 
         self._mv: tuple[int, int] | None = None      # offset seret bar
         self._rs: tuple[int, int, int, int] | None = None  # awal resize
@@ -474,6 +628,8 @@ class SokkinApp:
         self.hotkey_q: "queue.Queue[int]" = queue.Queue()
         self.hotkeys = GlobalHotkeys(self.hotkey_q)
         self.hotkeys.start()
+        if not self.selftest:
+            self.root.after(1200, self._warn_hotkey_conflicts)
 
         # ikon system tray — panel selalu bisa dipanggil lagi dari sini
         self.tray_q: "queue.Queue[str]" = queue.Queue()
@@ -616,17 +772,20 @@ class SokkinApp:
             return b
 
         self.btn_quit = add_btn("\u2715", self.quit)
+        add_btn("?", self.show_help)
         add_btn("Sembunyi", self.hide)
         add_btn("Buka", self.open_file)
         add_btn("Tema", self.cycle_theme)
         self.btn_mode = add_btn("Banner", self.toggle_mode)
+        self.btn_scope = add_btn("Semua", self.toggle_banner_scope)
         self.btn_slower = add_btn("\u00ab", lambda: self.change_speed(-self.BANNER_SPEED_STEP))
         self.btn_faster = add_btn("\u00bb", lambda: self.change_speed(+self.BANNER_SPEED_STEP))
         self.btn_auto = add_btn("Auto", self.toggle_auto)
         add_btn("\u2212", lambda: self.change_font(-2))
         add_btn("+", lambda: self.change_font(2))
 
-        # tombol kecepatan hanya relevan di mode banner
+        # kontrol khusus banner disembunyikan di mode kartu
+        self.btn_scope.pack_forget()
         self.btn_slower.pack_forget()
         self.btn_faster.pack_forget()
 
@@ -864,6 +1023,8 @@ class SokkinApp:
         self.index = max(0, min(idx, len(self.cards) - 1))
         self._set_card(self.cards[self.index])
         self._update_status()
+        if self.mode == "banner" and self.banner_scope == "card":
+            self._banner_rebuild(reset=True)
         if self.auto_on:
             self.auto_next_at = time.monotonic() + self.interval
 
@@ -890,8 +1051,10 @@ class SokkinApp:
         t = THEMES[self.theme_idx][1]
         if self.mode == "banner":
             state = "jeda" if self._banner_paused else "jalan"
+            scope = ("semua" if self.banner_scope == "all"
+                     else f"kartu {self.index + 1}")
             self.lbl_pos.configure(
-                text=f"Banner \u00b7 {self.banner_speed} px/s \u00b7 "
+                text=f"Banner \u00b7 {scope} \u00b7 {self.banner_speed} px/s \u00b7 "
                      f"{self.banner_size} pt \u00b7 {state}")
             self.btn_auto.configure(text="Lanjut" if self._banner_paused else "Jeda")
             auto_active = not self._banner_paused
@@ -913,6 +1076,12 @@ class SokkinApp:
             text="Kartu" if self.mode == "banner" else "Banner",
             bg=t["sel"] if mode_active else t["bar_bg"],
             fg=t["fg"] if mode_active else t["bar_fg"],
+        )
+        card_scope = self.banner_scope == "card"
+        self.btn_scope.configure(
+            text="Kartu ini" if card_scope else "Semua",
+            bg=t["accent"] if card_scope else t["bar_bg"],
+            fg="#ffffff" if card_scope else t["bar_fg"],
         )
 
     # ------------------------------------------------------- pengaturan
@@ -974,8 +1143,10 @@ class SokkinApp:
             self.text.pack_forget()
             self.ticker.pack(fill="both", expand=True, side="top")
             self.progress.pack_forget()
-            self.btn_slower.pack(side="right", padx=2, pady=4)
-            self.btn_faster.pack(side="right", padx=2, pady=4)
+            # sisipkan berurutan sebelum tombol Auto supaya posisinya tetap
+            self.btn_scope.pack(side="right", padx=2, pady=4, before=self.btn_auto)
+            self.btn_slower.pack(side="right", padx=2, pady=4, before=self.btn_auto)
+            self.btn_faster.pack(side="right", padx=2, pady=4, before=self.btn_auto)
             self.lbl_hint.configure(text=self.BANNER_HINT)
             self._banner_rebuild(reset=True)
             self.root.after_idle(self._banner_reposition)
@@ -985,6 +1156,7 @@ class SokkinApp:
             self.btn_next.pack(side="left", padx=(2, 0), pady=4, before=self.lbl_pos)
             self.text.pack(fill="both", expand=True, side="top")
             self.progress.pack(side="right", padx=(0, 2), pady=6, before=self.grip)
+            self.btn_scope.pack_forget()
             self.btn_slower.pack_forget()
             self.btn_faster.pack_forget()
             self.lbl_hint.configure(text=self.DEFAULT_HINT)
@@ -1000,10 +1172,24 @@ class SokkinApp:
         self._banner_last_t = time.monotonic()
         self._update_status()
 
+    def toggle_banner_scope(self) -> None:
+        """Banner memutar semua kartu atau hanya kartu yang sedang aktif."""
+        self.banner_scope = "card" if self.banner_scope == "all" else "all"
+        if self.mode == "banner":
+            self._banner_rebuild(reset=True)
+            self.root.after_idle(self._banner_reposition)
+        self._update_status()
+
+    def _banner_content(self) -> str:
+        if not self.cards:
+            return "Sokkin \u2014 tekan Ctrl+O untuk membuka file kartu"
+        if self.banner_scope == "card":
+            return self.cards[min(self.index, len(self.cards) - 1)]
+        return self.BANNER_SEP.join(self.cards)
+
     def _banner_rebuild(self, reset: bool = False) -> None:
-        """Susun ulang teks banner (semua kartu digabung dengan pemisah)."""
-        text = (self.BANNER_SEP.join(self.cards) if self.cards
-                else "Sokkin \u2014 tekan Ctrl+O untuk membuka file kartu")
+        """Susun ulang teks banner sesuai scope (semua kartu / kartu aktif)."""
+        text = self._banner_content()
         self.banner_font.configure(size=self.banner_size)
         old_x = self._banner_x
         self._banner_text = text
@@ -1106,6 +1292,30 @@ class SokkinApp:
         if not self.selftest or self.root.winfo_exists():
             self.root.after(50, self._poll_hotkeys)
 
+    def _warn_hotkey_conflicts(self) -> None:
+        """Beri tahu sekali kalau ada hotkey global yang bentrok."""
+        if self._warned_hotkeys:
+            return
+        failed = list(getattr(self.hotkeys, "failed", []))
+        if not failed:
+            return
+        self._warned_hotkeys = True
+        lines = "\n".join(
+            f"  \u2022 {GlobalHotkeys.LABELS.get(n, n)}" for n in failed)
+        extra = ""
+        if "next" in failed or "prev" in failed:
+            extra = ("\n\nCatatan: Ctrl+Alt+\u2190/\u2192 sering dipakai driver "
+                     "grafis untuk memutar layar. Matikan hotkey tersebut di "
+                     "driver/aplikasi lain, lalu jalankan ulang Sokkin.")
+        messagebox.showwarning(
+            f"{APP_NAME} \u2014 hotkey bentrok",
+            "Sebagian hotkey global tidak bisa dipakai karena sudah dipakai "
+            "aplikasi atau driver lain:\n\n" + lines + extra +
+            "\n\nSokkin tetap berjalan; panel bisa dipakai lewat tombol, "
+            "keyboard lokal, dan menu tray.",
+        )
+        self.root.after(50, self._focus_back)
+
     def _poll_tray(self) -> None:
         """Aksi dari ikon tray: klik kiri = tampilkan, klik kanan = menu."""
         try:
@@ -1121,9 +1331,31 @@ class SokkinApp:
             self.root.after(50, self._poll_tray)
 
     def _show_tray_menu(self) -> None:
-        """Menu konteks klik-kanan ikon tray."""
+        """Menu konteks klik-kanan ikon tray — semua aksi penting di sini."""
         menu = tk.Menu(self.root, tearoff=False)
         menu.add_command(label="Tampilkan panel", command=self.show)
+        menu.add_separator()
+        menu.add_command(
+            label="Mode kartu" if self.mode == "banner" else "Mode banner",
+            command=self.toggle_mode,
+        )
+        if self.mode == "banner":
+            menu.add_command(
+                label="Lanjutkan banner" if self._banner_paused
+                else "Jeda banner",
+                command=self.toggle_banner_pause,
+            )
+            menu.add_command(
+                label="Banner: semua kartu" if self.banner_scope == "card"
+                else "Banner: kartu ini",
+                command=self.toggle_banner_scope,
+            )
+        topmost_var = tk.BooleanVar(master=self.root, value=self.topmost)
+        menu.add_checkbutton(
+            label="Selalu di depan", variable=topmost_var,
+            command=self.toggle_topmost,
+        )
+        menu.add_command(label="Bantuan (F1)", command=self.show_help)
         menu.add_separator()
         menu.add_command(label="Keluar", command=self.quit)
         # posisikan menu di dekat kursor
@@ -1132,6 +1364,57 @@ class SokkinApp:
             menu.tk_popup(x, y)
         finally:
             menu.grab_release()
+
+    def show_help(self) -> None:
+        """Jendela bantuan F1 — daftar kontrol lokal & global."""
+        win = self._help_win
+        if win is not None:
+            try:
+                if win.winfo_exists():
+                    win.lift()
+                    win.focus_force()
+                    return
+            except tk.TclError:
+                pass
+
+        t = THEMES[self.theme_idx][1]
+        win = tk.Toplevel(self.root)
+        self._help_win = win
+        win.title(f"Bantuan \u2014 {APP_NAME} v{VERSION}")
+        win.configure(bg=t["bg"])
+        win.attributes("-topmost", True)
+        win.resizable(False, False)
+        apply_window_icon(win)
+
+        body = tk.Text(
+            win, width=76, height=32, wrap="word", borderwidth=0,
+            highlightthickness=0, padx=16, pady=12,
+            font=("Consolas", 9), bg=t["bg"], fg=t["fg"],
+            cursor="arrow",
+        )
+        body.insert("1.0", self.HELP_TEXT)
+        body.configure(state="disabled")
+        body.pack(fill="both", expand=True)
+
+        close = tk.Button(
+            win, text="Tutup (Esc)", relief="flat", padx=12, pady=3,
+            font=("Segoe UI", 9), bg=t["bar_bg"], fg=t["bar_fg"],
+            activebackground=t["sel"], activeforeground=t["fg"],
+            command=win.destroy, cursor="hand2",
+        )
+        close.pack(pady=(0, 10))
+
+        def _close(_e=None):
+            win.destroy()
+
+        win.bind("<Escape>", _close)
+        win.bind("<F1>", _close)
+        win.protocol("WM_DELETE_WINDOW", _close)
+        win.update_idletasks()
+        w, h = win.winfo_reqwidth(), win.winfo_reqheight()
+        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+        win.geometry(f"+{max(0, (sw - w) // 2)}+{max(0, (sh - h) // 2)}")
+        win.focus_force()
 
     def _tick(self) -> None:
         """Timer auto-play + progress bar + hover-reveal (10 kali per detik)."""
@@ -1181,6 +1464,9 @@ class SokkinApp:
         if ctrl and k in ("t", "T"):
             self.cycle_theme()
             return
+        if k == "F1":
+            self.show_help()
+            return
         if k == "F3":
             self.toggle_mode()
             return
@@ -1203,6 +1489,11 @@ class SokkinApp:
                 self.change_banner_size(+2)
             elif k in ("Down", "minus", "KP_Subtract"):
                 self.change_banner_size(-2)
+            elif k in ("Prior", "Next") and self.banner_scope == "card":
+                if k == "Prior":
+                    self.prev_card()
+                else:
+                    self.next_card()
             return
 
         if k in ("space", "Right", "Down", "Next"):
@@ -1433,9 +1724,15 @@ class SokkinApp:
                 "mode": self.mode,
                 "banner_speed": self.banner_speed,
                 "banner_size": self.banner_size,
+                "banner_scope": self.banner_scope,
             })
             save_settings(self.settings)
         finally:
+            if self._help_win is not None:
+                try:
+                    self._help_win.destroy()
+                except Exception:
+                    pass
             if self.tray is not None:
                 try:
                     self.tray.stop()       # hapus ikon tray + hentikan thread-nya
@@ -1453,15 +1750,31 @@ def main() -> None:
                     help="buka sebentar lalu tutup otomatis (untuk tes)")
     args = ap.parse_args()
 
-    _enable_dpi_awareness()
-    root = tk.Tk()
-    root.tk.call("tk", "scaling", ctypes.windll.user32.GetDpiForSystem() / 72.0
-                 if sys.platform == "win32" else 1.0)
-    root.title(APP_NAME)
-    apply_window_icon(root)
+    install_exception_logging()
 
-    app = SokkinApp(root, args.file, selftest=args.selftest)
-    root.mainloop()
+    # Jangan sampai dua instance rebutan tray icon & hotkey global.
+    # Selftest sengaja melewati guard supaya tidak memunculkan dialog modal.
+    if not args.selftest and not acquire_single_instance():
+        return
+
+    _enable_dpi_awareness()
+    try:
+        root = tk.Tk()
+        root.tk.call("tk", "scaling", ctypes.windll.user32.GetDpiForSystem() / 72.0
+                     if sys.platform == "win32" else 1.0)
+        root.title(APP_NAME)
+        apply_window_icon(root)
+        install_exception_logging(root)
+
+        app = SokkinApp(root, args.file, selftest=args.selftest)
+        root.mainloop()
+    except Exception:
+        log_exception(*sys.exc_info(), context="startup/main")
+        if args.selftest:
+            traceback.print_exc()
+        else:
+            _show_fatal_error()
+        return
 
     if args.selftest:
         n = len(app.cards)

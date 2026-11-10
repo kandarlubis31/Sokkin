@@ -15,7 +15,9 @@ Overlay teleprompter **selalu-di-depan** untuk Windows — dirancang untuk wawan
 - **Hotkey global** — navigasi tetap jalan walau fokus di aplikasi lain (mis. Zoom).
 - **Auto-play** — teks jalan sendiri dengan progress bar, kecepatan bisa diatur.
 - **Mode banner** — teks berjalan kanan→kiri ala billboard; kecepatan & ukuran bisa diatur, klik untuk jeda.
+- **Scope banner** — putar semua kartu sekaligus atau hanya kartu yang sedang aktif.
 - **Sembunyi ke tray** — panel hilang ke system tray; klik ikonnya untuk memunculkan lagi.
+- **Aman dipakai** — cegah dua instance, peringatan hotkey bentrok, bantuan `F1`, dan log error.
 - **Ringan & portabel** — satu file `.py`, atau satu `Sokkin.exe` (±11 MB) tanpa perlu Python.
 
 ## Showcase
@@ -44,6 +46,11 @@ Ambil `Sokkin.exe` terbaru di **[Releases](https://github.com/kandarlubis31/Sokk
 | Hotkey global | `Ctrl+Alt+→/←` kartu (atau kecepatan di mode banner), `Ctrl+Alt+Spasi` auto/jeda, `Ctrl+Alt+B` ganti mode, `Ctrl+Alt+H` sembunyi/tampil, `Ctrl+Alt+Q` keluar |
 | Auto-play | Progress bar + interval 2–60 detik, putar otomatis dari awal |
 | Mode banner | Semua kartu digabung jadi running text kanan→kiri, loop mulus tanpa jeda; kecepatan 20–600 px/detik, ukuran font sendiri, klik = jeda |
+| Scope banner | Tombol **Semua / Kartu ini** — putar seluruh deck atau ulangi satu kartu aktif saja |
+| Bantuan & tray | `F1` membuka daftar kontrol; menu tray bisa ganti mode, jeda banner, scope, topmost, dan keluar |
+| Satu instance | Membuka exe dua kali tidak membuat tray/hotkey ganda — instance kedua memberi pesan lalu keluar |
+| Peringatan hotkey | Kalau `Ctrl+Alt+…` sudah dipakai aplikasi/driver lain, Sokkin memberi tahu kombinasi mana yang gagal |
+| Log error | Traceback disimpan di `%APPDATA%\sokkin\sokkin.log` untuk troubleshooting |
 | 3 tema | Gelap, terang, sepia |
 | Anti-nyasar | Panel tidak bisa diletakkan keluar layar; saat dimunculkan lagi selalu kembali ke area terlihat |
 | Kenang pengaturan | Posisi, ukuran, font, transparansi, file terakhir — tersimpan antar sesi |
@@ -72,6 +79,9 @@ python -m sokkin
 | Banner: jeda / lanjut | `F2` · `Spasi` · klik area banner |
 | Banner: kecepatan | `[` / `]` · `←` / `→` · tombol `«` `»` |
 | Banner: ukuran teks | `+` / `−` · `↑` / `↓` · `Ctrl`+scroll |
+| Banner: scope semua / kartu ini | tombol **Semua** / **Kartu ini** · menu tray |
+| Banner: ganti kartu saat scope "kartu ini" | `PageUp` / `PageDown` |
+| Bantuan lengkap | `F1` · tombol `?` · menu tray → Bantuan |
 | Seret panel | klik-tahan bar atas / area teks / area banner, seret kemana saja |
 | Sembunyikan panel | `Esc` · tombol **Sembunyi** · seret panel ke atas melewati tepi layar → ke system tray |
 | Munculkan lagi | **klik ikon tray** (klik kanan = menu) · `Ctrl+Alt+H` · hover tepi atas layar |
@@ -90,8 +100,9 @@ Hotkey **global** (berfungsi walau fokus di Zoom): `Ctrl+Alt+→` · `Ctrl+Alt+�
 
 ## Tips & troubleshooting
 
-- **Hotkey global tidak jalan?** Pastikan tidak ada dua instance Sokkin. Beberapa aplikasi juga bisa merebut kombinasi `Ctrl+Alt+…`; coba tutup aplikasi tersebut.
+- **Hotkey global tidak jalan?** Sokkin hanya bisa jalan satu instance. Beberapa aplikasi/driver (terutama driver grafis untuk `Ctrl+Alt+←/→`) bisa merebut kombinasi tersebut; Sokkin akan menampilkan peringatan kombinasi mana yang gagal. Tutup aplikasi/driver itu lalu jalankan ulang Sokkin.
 - **Panel terasa hilang?** Klik ikon Sokkin di tray, atau tekan `Ctrl+Alt+H`. Panel selalu dikembalikan ke area layar yang terlihat.
+- **Aplikasi tidak muncul / error?** Cek `%APPDATA%\sokkin\sokkin.log` — traceback terakhir disimpan di sana.
 - **Kartu tidak muncul?** File harus berisi satu baris per kartu. Baris kosong dan baris berawalan `#` diabaikan.
 - **Peringatan SmartScreen?** Exe belum ditandatangani; klik **More info → Run anyway**.
 
@@ -136,7 +147,9 @@ Sokkin/
 
 ## Pengaturan
 
-Disimpan di `%APPDATA%\sokkin\settings.json`. Hapus file itu untuk kembali ke pengaturan awal. Yang diingat antara lain: posisi & ukuran panel, tema, font, transparansi, file terakhir, mode terakhir, kecepatan banner, dan ukuran font banner.
+Disimpan di `%APPDATA%\sokkin\settings.json`. Hapus file itu untuk kembali ke pengaturan awal. Yang diingat antara lain: posisi & ukuran panel, tema, font, transparansi, file terakhir, mode terakhir, kecepatan banner, ukuran font banner, dan scope banner (semua kartu / kartu ini).
+
+Log error ada di `%APPDATA%\sokkin\sokkin.log`.
 
 ## Lisensi
 

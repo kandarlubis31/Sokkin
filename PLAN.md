@@ -1,6 +1,6 @@
 # PLAN — Sokkin
 
-Status: **v1.5.0 siap rilis** (mode banner selesai).
+Status: **v1.5.0 siap rilis** (mode banner + polish pra-rilis selesai).
 
 ## Sudah selesai
 
@@ -18,6 +18,12 @@ Status: **v1.5.0 siap rilis** (mode banner selesai).
 - [x] Mode banner: running text kanan→kiri, loop mulus, kecepatan px/detik, ukuran font sendiri
 - [x] Kontrol banner: klik jeda, `F2`/`Spasi`, `[`/`]` atau `←/→` kecepatan, `+/−` atau `↑/↓` ukuran
 - [x] Hotkey global `Ctrl+Alt+B` untuk ganti mode kartu ↔ banner
+- [x] Scope banner: tombol `Semua` / `Kartu ini`, `PageUp/PageDown` untuk ganti kartu
+- [x] Single-instance guard (named mutex) — instance kedua diberi pesan lalu keluar
+- [x] Peringatan sekali kalau ada hotkey global yang bentrok
+- [x] Menu tray lengkap: mode, jeda banner, scope, topmost, bantuan, keluar
+- [x] Bantuan `F1` / tombol `?` berisi semua kontrol lokal & global
+- [x] Log error ke `%APPDATA%\sokkin\sokkin.log` (main thread, thread lain, callback Tk)
 - [x] Fix bottom bar: hint/progress/grip sekarang benar-benar tampil (urutan pack)
 - [x] Banner + social preview di `showcase/`
 - [x] Build PyInstaller onefile (`dist/Sokkin.exe`, ±11 MB)
@@ -52,7 +58,6 @@ Status: **v1.5.0 siap rilis** (mode banner selesai).
 ### P2 — Kualitas hidup
 - [ ] Deck preview: daftar kartu, klik untuk lompat
 - [ ] Timer wawancara (hitung mundur)
-- [ ] Layar bantuan hotkey (`F1`)
 - [ ] Pilihan font (sekarang Segoe UI)
 - [ ] Mode "click-through" (panel tidak menghalangi klik)
 
@@ -72,6 +77,8 @@ Status: **v1.5.0 siap rilis** (mode banner selesai).
 - Tray pakai `Shell_NotifyIconW` via ctypes murni (tanpa pystray/Pillow).
 - Aset brand digenerate oleh `tools/make_brand.py` (Pillow hanya untuk dev).
 - Banner = satu Canvas dengan dua salinan teks berjarak `BANNER_GAP`; kecepatan px/detik supaya stabil di FPS berapa pun. Jangan pakai `Text`/`Label` yang di-update per frame (berat & tidak mulus).
+- Scope banner disimpan di `banner_scope` (`"all"` / `"card"`); mode `"card"` memakai `self.cards[self.index]`.
+- Single instance pakai named mutex `Local\Sokkin.SingleInstance`; handle ditahan sampai proses selesai.
 - Bar bawah wajib dipack **sebelum** area teks/ticker yang `expand`; kalau tidak, bar hint/progress/grip tertekan keluar.
 
 ## Lokasi file
