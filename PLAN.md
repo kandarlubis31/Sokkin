@@ -1,6 +1,6 @@
 # PLAN — Sokkin
 
-Status: **v1.6.0 sudah dirilis** (editor kartu, mode gulir, klik-tembus, hotkey kustom). Versi ini ditutup.
+Status: **v1.6.0 sudah dirilis (10 Nov 2026)** — editor kartu, mode gulir, klik-tembus, hotkey kustom. Versi ini ditutup.
 
 ## Sudah selesai
 

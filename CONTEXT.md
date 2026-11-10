@@ -11,13 +11,14 @@ Repo: https://github.com/kandarlubis31/Sokkin
 ## Status
 
 - v1.6.0 sudah di-push dan **dirilis publik**: https://github.com/kandarlubis31/Sokkin/releases/tag/v1.6.0
+- Tag `v1.6.0` → commit `eff9df4`; dokumentasi pasca-rilis di `5965fd5`.
 - Asset rilis: `Sokkin.exe` (11,13 MB), SHA-256 `ba192ec057971ab9e748175766fdf142e03d161e3b4642cde84fb58848472aff` (cocok dengan digest GitHub).
 - Versi ini **ditutup**; pengembangan berikutnya masuk backlog v1.7.
-- Selftest terakhir: `SELFTEST OK — kartu: 25, hotkey global: 7/7, ..., banner: True, gulir: True, matematika gulir: True, klik-tembus: True`.
+- Selftest terakhir: `SELFTEST OK — kartu: 25, hotkey global: 7/7, ..., banner: True, gulir: True, matematika gulir: True, klik-tembus: True` (jumlah kartu mengikuti deck terakhir; deck contoh publik berisi 15 kartu).
 - Smoke test exe `--selftest` dengan APPDATA bersih: exit code 0.
 - Deck pribadi user: `SOKKIN_TEKS_PRIBADI.txt` — **gitignored, jangan pernah di-push**.
 - Deck contoh publik: `SOKKIN_TEKS.txt` (15 kartu generik).
-- Export GIF demo: `showcase/sokkin-demo.gif` (48 frame, ±1,9 MB) dari aplikasi asli.
+- GIF demo: `showcase/sokkin-demo.gif` (48 frame, ±1,9 MB) direkam dari aplikasi asli.
 
 ## Fitur utama
 
